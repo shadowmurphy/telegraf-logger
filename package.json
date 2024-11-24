@@ -1,5 +1,5 @@
 {
-  "name": "tele-logger",
+  "name": "@shadowmurphy/telegraf-logger",
   "version": "1.0.0",
   "description": "Расширенный логгер для Telegraf ботов на Node.js с поддержкой цветной консоли, префиксов, ротации логов и маскировки данных.",
   "main": "src/index.js",

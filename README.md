@@ -1,6 +1,6 @@
 # Telegraf Logger
 
-![npm version](https://img.shields.io/npm/v/tele-logger.svg) ![GitHub License](https://img.shields.io/github/license/shadowmurphy/tele-logger.svg) ![Node.js Version](https://img.shields.io/node/v/tele-logger.svg) ![npm Downloads](https://img.shields.io/npm/dt/tele-logger.svg)
+![npm version](https://img.shields.io/npm/v/@shadowmurphy/telegraf-logger.svg) ![GitHub License](https://img.shields.io/github/license/shadowmurphy/@shadowmurphy/telegraf-logger.svg) ![Node.js Version](https://img.shields.io/node/v/@shadowmurphy/telegraf-logger.svg) ![npm Downloads](https://img.shields.io/npm/dt/@shadowmurphy/telegraf-logger.svg)
 
 **Telegraf Logger** is a powerful and flexible logging solution for Telegram bots built with [Telegraf](https://github.com/telegraf/telegraf), a popular framework for developing Telegram bots in Node.js. This logger provides comprehensive and high-quality logging of events, errors, and other important messages, helping you effectively monitor and debug your bot's operations.
 
@@ -39,7 +39,7 @@
 Install the package via npm:
 
 ```
-npm install tele-logger
+npm install @shadowmurphy/telegraf-logger
 ```
 
 ## 🚀 Quick Start
@@ -50,7 +50,7 @@ Create a `bot.js` file in your project directory and initialize your Telegraf bo
 
 ```
 const { Telegraf } = require('telegraf');
-const { telegrafLogger } = require('tele-logger');
+const { telegrafLogger } = require('@shadowmurphy/telegraf-logger');
 
 const BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
 
@@ -206,13 +206,13 @@ We welcome contributions! Please follow these steps to contribute:
 
 1.  **Fork the Repository**
     
-    Click the [Fork](https://github.com/shadowmurphy/tele-logger/fork) button at the top right of the repository page.
+    Click the [Fork](https://github.com/shadowmurphy/@shadowmurphy/telegraf-logger/fork) button at the top right of the repository page.
     
 2.  **Clone Your Fork**
     
     ```
-    git clone https://github.com/shadowmurphy/tele-logger.git
-    cd tele-logger
+    git clone https://github.com/shadowmurphy/@shadowmurphy/telegraf-logger.git
+    cd @shadowmurphy/telegraf-logger
     ```
     
 3.  **Create a New Branch**
@@ -250,7 +250,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 For any questions, suggestions, or feedback, feel free to:
 
-*   Open an [issue](https://github.com/shadowmurphy/tele-logger/issues) on GitHub.
+*   Open an [issue](https://github.com/shadowmurphy/@shadowmurphy/telegraf-logger/issues) on GitHub.
 *   Contact the author via [email](mailto:contact@kyrylo.work).
 
 ## 📄 Sample Logs
@@ -279,12 +279,12 @@ For any questions, suggestions, or feedback, feel free to:
 
 ## 📈 Statistics
 
-![npm downloads](https://img.shields.io/npm/dt/tele-logger.svg) ![GitHub issues](https://img.shields.io/github/issues/shadowmurphy/tele-logger.svg) ![GitHub pull requests](https://img.shields.io/github/issues-pr/shadowmurphy/tele-logger.svg)
+![npm downloads](https://img.shields.io/npm/dt/@shadowmurphy/telegraf-logger.svg) ![GitHub issues](https://img.shields.io/github/issues/shadowmurphy/@shadowmurphy/telegraf-logger.svg) ![GitHub pull requests](https://img.shields.io/github/issues-pr/shadowmurphy/@shadowmurphy/telegraf-logger.svg)
 
 ## 📢 Updates
 
-Stay updated with the latest changes in the [GitHub repository](https://github.com/shadowmurphy/tele-logger).
+Stay updated with the latest changes in the [GitHub repository](https://github.com/shadowmurphy/@shadowmurphy/telegraf-logger).
 
 - - -
 
-Thank you for using **Telegraf Logger**! If you find this package useful, please consider giving it a ⭐ on [GitHub](https://github.com/shadowmurphy/tele-logger) and sharing it with other developers.
+Thank you for using **Telegraf Logger**! If you find this package useful, please consider giving it a ⭐ on [GitHub](https://github.com/shadowmurphy/@shadowmurphy/telegraf-logger) and sharing it with other developers.
