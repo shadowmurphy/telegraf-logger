@@ -1,0 +1,28 @@
+{
+  "name": "telegraf-logger",
+  "version": "1.0.0",
+  "description": "Пакет для подробного и качественного логирования для Telegraf ботов",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\" && exit 0",
+    "prepublishOnly": "echo \"Ready to publish\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shadowmurphy/telegraf-logger.git"
+  },
+  "keywords": [
+    "telegraf",
+    "telegram",
+    "logger"
+  ],
+  "author": "Ваше Имя",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shadowmurphy/telegraf-logger/issues"
+  },
+  "homepage": "https://github.com/shadowmurphy/telegraf-logger#readme",
+  "dependencies": {
+    "telegraf": "^4.16.3"
+  }
+}
