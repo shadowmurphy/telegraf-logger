@@ -1,28 +1,30 @@
 {
   "name": "telegraf-logger",
   "version": "1.0.0",
-  "description": "Пакет для подробного и качественного логирования для Telegraf ботов",
+  "description": "Расширенный логгер для Telegraf ботов на Node.js с поддержкой цветной консоли, префиксов, ротации логов и маскировки данных.",
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"No tests specified\" && exit 0",
-    "prepublishOnly": "echo \"Ready to publish\""
+    "prepare": "npm run build",
+    "build": "echo \"No build step required\""
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shadowmurphy/telegraf-logger.git"
+    "url": "git@github.com:shadowmurphy/telegraf-logger.git"
   },
   "keywords": [
     "telegraf",
-    "telegram",
-    "logger"
+    "logger",
+    "logging",
+    "telegram-bot",
+    "nodejs",
+    "logging-library"
   ],
-  "author": "Ваше Имя",
+  "author": "shadowmurphy",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/shadowmurphy/telegraf-logger/issues"
   },
   "homepage": "https://github.com/shadowmurphy/telegraf-logger#readme",
-  "dependencies": {
-    "telegraf": "^4.16.3"
-  }
+  "dependencies": {}
 }
