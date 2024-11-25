@@ -6,23 +6,30 @@
 
 ## 📝 Table of Contents
 
-*   [Features](#features)
-*   [Installation](#installation)
-*   [Quick Start](#quick-start)
-    *   [Basic Setup](#basic-setup)
-    *   [Advanced Configuration](#advanced-configuration)
-*   [Configuration Options](#configuration-options)
-*   [API Reference](#api-reference)
-*   [Examples](#examples)
-    *   [Logging Commands and Messages](#logging-commands-and-messages)
-    *   [Masking Sensitive Data](#masking-sensitive-data)
-    *   [Dynamic Configuration](#dynamic-configuration)
-*   [Contributing](#contributing)
-*   [License](#license)
-*   [Contact](#contact)
-*   [Sample Logs](#sample-logs)
-*   [Statistics](#statistics)
-*   [Updates](#updates)
+- [Telegraf Logger](#telegraf-logger)
+  - [📝 Table of Contents](#-table-of-contents)
+  - [✨ Features](#-features)
+  - [📦 Installation](#-installation)
+  - [🚀 Quick Start](#-quick-start)
+    - [Basic Setup](#basic-setup)
+    - [Advanced Configuration](#advanced-configuration)
+  - [🛠 Configuration Options](#-configuration-options)
+  - [🔍 API Reference](#-api-reference)
+    - [telegrafLogger(bot, options)](#telegrafloggerbot-options)
+    - [Logger Class](#logger-class)
+      - [Methods](#methods)
+  - [🎉 Examples](#-examples)
+    - [Logging Commands and Messages](#logging-commands-and-messages)
+    - [Masking Sensitive Data](#masking-sensitive-data)
+    - [Dynamic Configuration](#dynamic-configuration)
+  - [🤝 Contributing](#-contributing)
+  - [🛡 License](#-license)
+  - [📫 Contact](#-contact)
+  - [📄 Sample Logs](#-sample-logs)
+    - [Console Output with Emojis and Colors](#console-output-with-emojis-and-colors)
+    - [Combined Log File (`combined.log`)](#combined-log-file-combinedlog)
+  - [📈 Statistics](#-statistics)
+  - [📢 Updates](#-updates)
 
 ## ✨ Features
 
@@ -39,7 +46,7 @@
 Install the package via npm:
 
 ```
-npm install @shadowmurphy/telegraf-logger
+npm install @murphyy/telegraf-logger
 ```
 
 ## 🚀 Quick Start

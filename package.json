@@ -26,5 +26,9 @@
     "url": "https://github.com/shadowmurphy/telegraf-logger/issues"
   },
   "homepage": "https://github.com/shadowmurphy/telegraf-logger#readme",
-  "dependencies": {}
+  "dependencies": {
+    "@murphyy/telegraf-logger": "^1.0.1",
+    "@shadowmurphy/telegraf-logger": "file:",
+    "telegraf": "^4.16.3"
+  }
 }
