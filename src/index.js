@@ -21,7 +21,7 @@ function telegrafLogger(bot, options = {}) {
 
   // Логирование входящих обновлений
   bot.use(async (ctx, next) => {
-    logger.info(`Получено обновление: ${JSON.stringify(ctx.update)}`);
+    logger.info(`Получено обновление: ${JSON.stringify()}`);
     try {
       await next();
       logger.info(`Обработано обновление: ${ctx.update.update_id}`);
