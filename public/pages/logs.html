@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Логи в реальном времени</title>
+  <link rel="stylesheet" href="/styles/logs.css">
+</head>
+<body>
+  <h1>Логи в реальном времени</h1>
+  <div class="controls">
+    <label for="level">Уровень логов:</label>
+    <select id="level">
+      <option value="all">Все</option>
+      <option value="error">Error</option>
+      <option value="warn">Warn</option>
+      <option value="info">Info</option>
+      <option value="verbose">Verbose</option>
+      <option value="debug">Debug</option>
+      <option value="silly">Silly</option>
+    </select>
+    <input type="text" id="search" placeholder="Поиск по логам...">
+  </div>
+  <pre id="logs"></pre>
+  <script src="/scripts/logs.js"></script>
+</body>
+</html>

@@ -25,6 +25,7 @@ class Logger {
    * @param {LoggerOptions} [options] - Опции для логирования
    */
   constructor(options = {}) {
+    this.logFormat = options.logFormat || 'text';
     this.logDirectory = options.logDirectory || 'logs';
     this.logLevel = options.logLevel || 'info';
     this.colors = options.colors || {
@@ -47,11 +48,13 @@ class Logger {
     this.maxFileSize = options.maxFileSize || 5 * 1024 * 1024; // 5MB
     this.maskPatterns = options.maskPatterns || []; // Массив RegExp
     this.moduleTag = options.moduleTag || ''; // Тег модуля
-
+    this.enableWebServer = options.enableWebServer || false;
+    this.webServerPort = options.webServerPort || 3000;
+    this.webClients = [];
+  
+    if (this.enableWebServer) this.startWebServer();
     // Создаём папку для логов, если её нет
-    if (!fs.existsSync(this.logDirectory)) {
-      fs.mkdirSync(this.logDirectory, { recursive: true });
-    }
+    if (!fs.existsSync(this.logDirectory)) fs.mkdirSync(this.logDirectory, { recursive: true });
 
     // Расширенные уровни логирования
     this.levels = {
@@ -85,6 +88,106 @@ class Logger {
     );
   }
 
+  startWebServer() {
+    const http = require('http');
+    const url = require('url');
+    const fs = require('fs');
+    const path = require('path');
+  
+    const publicDir = path.join(__dirname, 'public');
+  
+    this.server = http.createServer((req, res) => {
+      const parsedUrl = url.parse(req.url);
+      let pathname = path.join(publicDir, parsedUrl.pathname);
+  
+      // Обработка корневого пути и SSE
+      if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/logs') {
+        pathname = path.join(publicDir, 'pages', 'logs.html');
+      } else if (parsedUrl.pathname === '/stream') {
+        // Обработка SSE для логов в реальном времени
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        });
+        res.write('\n');
+  
+        this.webClients.push(res);
+  
+        req.on('close', () => {
+          this.webClients = this.webClients.filter((client) => client !== res);
+        });
+        return; // Выходим из обработчика запроса
+      }
+  
+      fs.exists(pathname, (exist) => {
+        if (!exist) {
+          res.statusCode = 404;
+          res.end(`File ${pathname} not found!`);
+          return;
+        }
+  
+        // Если путь - директория, подставляем index.html
+        if (fs.statSync(pathname).isDirectory()) {
+          pathname = path.join(pathname, 'index.html');
+        }
+  
+        // Определяем MIME-тип по расширению файла
+        const ext = path.parse(pathname).ext;
+        const mimeType = {
+          '.html': 'text/html',
+          '.css': 'text/css',
+          '.js': 'application/javascript',
+          '.json': 'application/json',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.wav': 'audio/wav',
+        };
+  
+        fs.readFile(pathname, (err, data) => {
+          if (err) {
+            res.statusCode = 500;
+            res.end(`Error getting the file: ${err}.`);
+          } else {
+            res.setHeader('Content-type', mimeType[ext] || 'text/plain');
+            res.end(data);
+          }
+        });
+      });
+    });
+  
+    this.server.listen(this.webServerPort, () => {
+      console.log(`Logger web server started on port ${this.webServerPort}`);
+    });
+  }
+  
+
+
+  stopWebServer() {
+    if (this.server) {
+      this.server.close();
+      this.webClients.forEach((client) => client.end());
+      this.webClients = [];
+    }
+  }
+
+  close() {
+    Object.values(this.streams).forEach((stream) => {
+      stream.end();
+    });
+    this.stopWebServer();
+  }  
+
+  /**
+   * Установка формата логирования
+   * @param {string} format Формат ('text' или 'json')
+   */
+  setLogFormat(format) {
+    if (format === 'text' || format === 'json') this.logFormat = format;
+  }
+
   /**
    * Применяет маскировку к сообщению
    * @param {string} message Сообщение для маскировки
@@ -114,13 +217,10 @@ class Logger {
    */
   log(level, message) {
     if (this.shouldLog(level)) {
-      // Применяем маскировку к сообщению
       const maskedMessage = this.applyMasking(message);
-
       const timestamp = getTimestamp();
       let prefix = this.prefixes[level] || `[${level.toUpperCase()}]`;
-
-      // Добавление эмодзи, если включено
+  
       if (this.useEmoji) {
         const emojis = {
           error: '❌',
@@ -132,20 +232,54 @@ class Logger {
         };
         prefix = `${emojis[level] || ''} ${prefix}`;
       }
-
-      // Добавление тега модуля, если он установлен
+  
       const moduleInfo = this.moduleTag ? `[${this.moduleTag}] ` : '';
-
       const color = this.colors[level] || 'white';
-      const formattedMessage = `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
-
-      // Запись в консоль с цветом
+  
+      const logObject = {
+        timestamp,
+        level,
+        module: this.moduleTag || undefined,
+        message: maskedMessage,
+      };
+  
+      const formattedMessage = this.logFormat === 'json'
+        ? JSON.stringify(logObject)
+        : `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
+  
       console.log(colorize(formattedMessage, color));
-
-      // Запись в файл через поток
       this.writeToStream(level, formattedMessage);
       this.writeToStream('combined', formattedMessage);
+  
+      // Отправка логов веб-клиентам через SSE
+      if (this.webClients.length > 0) {
+        const sseData = `data: ${JSON.stringify(logObject)}\n\n`;
+        this.webClients.forEach((client) => {
+          client.write(sseData);
+        });
+      }
     }
+  }
+  
+
+  /**
+   * Проверяет размер файла и выполняет ротацию при необходимости
+   * @param {string} streamName Имя потока
+   */
+  checkFileSizeAndRotate(streamName) {
+    const filePath = path.join(this.logDirectory, `${streamName}.log`);
+    fs.stat(filePath, (err, stats) => {
+      if (!err && stats.size >= this.maxFileSize) {
+        const timestamp = getTimestamp().replace(/[:\s]/g, '_');
+        const newFilePath = path.join(this.logDirectory, `${streamName}-${timestamp}.log`);
+        fs.rename(filePath, newFilePath, (err) => {
+          if (!err) {
+            this.streams[streamName].end();
+            this.streams[streamName] = fs.createWriteStream(filePath, { flags: 'a' });
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -154,10 +288,10 @@ class Logger {
    * @param {string} message Сообщение для записи
    */
   writeToStream(streamName, message) {
+    this.checkFileSizeAndRotate(streamName);
     if (this.streams[streamName]) {
       this.streams[streamName].write(message + '\n');
     } else {
-      // Если поток не существует, создаём его
       const filePath = path.join(this.logDirectory, `${streamName}.log`);
       this.streams[streamName] = fs.createWriteStream(filePath, { flags: 'a' });
       this.streams[streamName].write(message + '\n');
