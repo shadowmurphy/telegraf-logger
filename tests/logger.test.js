@@ -2,6 +2,7 @@
 
 const Logger = require('../src/logger');
 const http = require('http');
+const EventSource = require('eventsource');
 
 // Initialize the logger with various options
 const logger = new Logger({
