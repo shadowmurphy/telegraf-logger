@@ -25,6 +25,7 @@ class Logger {
    * @param {LoggerOptions} [options] - Опции для логирования
    */
   constructor(options = {}) {
+    this.logFormat = options.logFormat || 'text';
     this.logDirectory = options.logDirectory || 'logs';
     this.logLevel = options.logLevel || 'info';
     this.colors = options.colors || {
@@ -47,11 +48,13 @@ class Logger {
     this.maxFileSize = options.maxFileSize || 5 * 1024 * 1024; // 5MB
     this.maskPatterns = options.maskPatterns || []; // Массив RegExp
     this.moduleTag = options.moduleTag || ''; // Тег модуля
-
+    this.enableWebServer = options.enableWebServer || false;
+    this.webServerPort = options.webServerPort || 3000;
+    this.webClients = [];
+  
+    if (this.enableWebServer) this.startWebServer();
     // Создаём папку для логов, если её нет
-    if (!fs.existsSync(this.logDirectory)) {
-      fs.mkdirSync(this.logDirectory, { recursive: true });
-    }
+    if (!fs.existsSync(this.logDirectory)) fs.mkdirSync(this.logDirectory, { recursive: true });
 
     // Расширенные уровни логирования
     this.levels = {
@@ -85,6 +88,83 @@ class Logger {
     );
   }
 
+  startWebServer() {
+    const http = require('http');
+    const url = require('url');
+  
+    this.server = http.createServer((req, res) => {
+      const parsedUrl = url.parse(req.url, true);
+  
+      if (parsedUrl.pathname === '/logs') {
+        // Устанавливаем заголовки для SSE
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        });
+        res.write('\n');
+  
+        this.webClients.push(res);
+  
+        req.on('close', () => {
+          this.webClients = this.webClients.filter((client) => client !== res);
+        });
+      } else if (parsedUrl.pathname === '/') {
+        // Отдаем простую HTML-страницу
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Real-time Logs</title>
+          </head>
+          <body>
+            <h1>Real-time Logs</h1>
+            <pre id="logs"></pre>
+            <script>
+              const eventSource = new EventSource('/logs');
+              eventSource.onmessage = function(event) {
+                const logs = document.getElementById('logs');
+                logs.textContent += event.data + '\\n';
+              };
+            </script>
+          </body>
+          </html>
+        `);
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+  
+    this.server.listen(this.webServerPort, () => {
+      console.log(`Logger web server started on port ${this.webServerPort}`);
+    });
+  }
+
+  stopWebServer() {
+    if (this.server) {
+      this.server.close();
+      this.webClients.forEach((client) => client.end());
+      this.webClients = [];
+    }
+  }
+
+  close() {
+    Object.values(this.streams).forEach((stream) => {
+      stream.end();
+    });
+    this.stopWebServer();
+  }  
+
+  /**
+   * Установка формата логирования
+   * @param {string} format Формат ('text' или 'json')
+   */
+  setLogFormat(format) {
+    if (format === 'text' || format === 'json') this.logFormat = format;
+  }
+
   /**
    * Применяет маскировку к сообщению
    * @param {string} message Сообщение для маскировки
@@ -114,38 +194,70 @@ class Logger {
    */
   log(level, message) {
     if (this.shouldLog(level)) {
-      // Применяем маскировку к сообщению
-      const maskedMessage = this.applyMasking(message);
-
-      const timestamp = getTimestamp();
-      let prefix = this.prefixes[level] || `[${level.toUpperCase()}]`;
-
-      // Добавление эмодзи, если включено
-      if (this.useEmoji) {
-        const emojis = {
-          error: '❌',
-          warn: '⚠️',
-          info: 'ℹ️',
-          verbose: '🔍',
-          debug: '🐞',
-          silly: '🎉',
-        };
-        prefix = `${emojis[level] || ''} ${prefix}`;
+      if (this.shouldLog(level)) {
+        const maskedMessage = this.applyMasking(message);
+        const timestamp = getTimestamp();
+        let prefix = this.prefixes[level] || `[${level.toUpperCase()}]`;
+    
+        if (this.useEmoji) {
+          const emojis = {
+            error: '❌',
+            warn: '⚠️',
+            info: 'ℹ️',
+            verbose: '🔍',
+            debug: '🐞',
+            silly: '🎉',
+          };
+          prefix = `${emojis[level] || ''} ${prefix}`;
+        }
+    
+        const moduleInfo = this.moduleTag ? `[${this.moduleTag}] ` : '';
+        const color = this.colors[level] || 'white';
+    
+        let formattedMessage;
+    
+        if (this.logFormat === 'json') {
+          formattedMessage = JSON.stringify({
+            timestamp,
+            level,
+            module: this.moduleTag || undefined,
+            message: maskedMessage,
+          });
+        } else {
+          formattedMessage = `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
+        }
+    
+        console.log(colorize(formattedMessage, color));
+        this.writeToStream(level, formattedMessage);
+        this.writeToStream('combined', formattedMessage);
       }
-
-      // Добавление тега модуля, если он установлен
-      const moduleInfo = this.moduleTag ? `[${this.moduleTag}] ` : '';
-
-      const color = this.colors[level] || 'white';
-      const formattedMessage = `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
-
-      // Запись в консоль с цветом
-      console.log(colorize(formattedMessage, color));
-
-      // Запись в файл через поток
-      this.writeToStream(level, formattedMessage);
-      this.writeToStream('combined', formattedMessage);
+      if (this.webClients.length > 0) {
+        const sseMessage = `data: ${formattedMessage.replace(/\n/g, '')}\n\n`;
+        this.webClients.forEach((client) => {
+          client.write(sseMessage);
+        });
+      }
     }
+  }
+
+  /**
+   * Проверяет размер файла и выполняет ротацию при необходимости
+   * @param {string} streamName Имя потока
+   */
+  checkFileSizeAndRotate(streamName) {
+    const filePath = path.join(this.logDirectory, `${streamName}.log`);
+    fs.stat(filePath, (err, stats) => {
+      if (!err && stats.size >= this.maxFileSize) {
+        const timestamp = getTimestamp().replace(/[:\s]/g, '_');
+        const newFilePath = path.join(this.logDirectory, `${streamName}-${timestamp}.log`);
+        fs.rename(filePath, newFilePath, (err) => {
+          if (!err) {
+            this.streams[streamName].end();
+            this.streams[streamName] = fs.createWriteStream(filePath, { flags: 'a' });
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -154,10 +266,10 @@ class Logger {
    * @param {string} message Сообщение для записи
    */
   writeToStream(streamName, message) {
+    this.checkFileSizeAndRotate(streamName);
     if (this.streams[streamName]) {
       this.streams[streamName].write(message + '\n');
     } else {
-      // Если поток не существует, создаём его
       const filePath = path.join(this.logDirectory, `${streamName}.log`);
       this.streams[streamName] = fs.createWriteStream(filePath, { flags: 'a' });
       this.streams[streamName].write(message + '\n');

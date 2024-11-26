@@ -1,7 +1,7 @@
 {
-  "name": "@shadowmurphy/telegraf-logger",
-  "version": "1.0.0",
-  "description": "Расширенный логгер для Telegraf ботов на Node.js с поддержкой цветной консоли, префиксов, ротации логов и маскировки данных.",
+  "name": "@murphyy/telegraf-logger",
+  "version": "1.0.1",
+  "description": "Advanced logger for Telegraf bots on Node.js with support for color console, prefixes, log rotation and data masking.",
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"No tests specified\" && exit 0",
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:shadowmurphy/telegraf-logger.git"
+    "url": "git+ssh://git@github.com/shadowmurphy/telegraf-logger.git"
   },
   "keywords": [
     "telegraf",
