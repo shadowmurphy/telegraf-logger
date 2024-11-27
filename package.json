@@ -27,8 +27,12 @@
   },
   "homepage": "https://github.com/shadowmurphy/telegraf-logger#readme",
   "dependencies": {
+<<<<<<< HEAD
     "@murphyy/telegraf-logger": "^1.0.1",
     "@shadowmurphy/telegraf-logger": "file:",
     "telegraf": "^4.16.3"
+=======
+    "eventsource": "^2.0.2"
+>>>>>>> 65ad7ea (v1.2)
   }
 }
