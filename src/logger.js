@@ -2,7 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const url = require('url');
 const { getTimestamp, writeToFile, colorize } = require('./utils');
+const { exec } = require('child_process');
 
 /**
  * @typedef {Object} LoggerOptions
@@ -14,6 +17,8 @@ const { getTimestamp, writeToFile, colorize } = require('./utils');
  * @property {number} [maxFileSize] - Максимальный размер файла логов в байтах (по умолчанию 5MB)
  * @property {Array<RegExp>} [maskPatterns] - Массив регулярных выражений для маскировки данных
  * @property {string} [moduleTag] - Тег модуля для фильтрации логов
+ * @property {boolean} [enableWebServer] - Включить встроенный веб-сервер для просмотра логов
+ * @property {number} [webServerPort] - Порт для веб-сервера (по умолчанию 3000)
  */
 
 /**
@@ -25,6 +30,7 @@ class Logger {
    * @param {LoggerOptions} [options] - Опции для логирования
    */
   constructor(options = {}) {
+    this.logFormat = options.logFormat || 'text';
     this.logFormat = options.logFormat || 'text';
     this.logDirectory = options.logDirectory || 'logs';
     this.logLevel = options.logLevel || 'info';
@@ -51,19 +57,18 @@ class Logger {
     this.enableWebServer = options.enableWebServer || false;
     this.webServerPort = options.webServerPort || 3000;
     this.webClients = [];
-  
-    if (this.enableWebServer) this.startWebServer();
+
     // Создаём папку для логов, если её нет
     if (!fs.existsSync(this.logDirectory)) fs.mkdirSync(this.logDirectory, { recursive: true });
 
     // Расширенные уровни логирования
     this.levels = {
-      'error': 0,
-      'warn': 1,
-      'info': 2,
-      'verbose': 3,
-      'debug': 4,
-      'silly': 5,
+      error: 0,
+      warn: 1,
+      info: 2,
+      verbose: 3,
+      debug: 4,
+      silly: 5,
     };
 
     this.currentLevel = this.levels[this.logLevel] !== undefined ? this.levels[this.logLevel] : 2;
@@ -86,20 +91,68 @@ class Logger {
       path.join(this.logDirectory, 'exceptions.log'),
       { flags: 'a' }
     );
+
+    // Запускаем веб-сервер, если он включен
+    if (this.enableWebServer) {
+      this.killProcessOnPort(this.webServerPort)
+        .then(() => this.startWebServer())
+        .catch((err) => console.error(`Ошибка при освобождении порта: ${err}`));
+    }
+  }
+
+  /**
+   * Завершает процесс, занимающий указанный порт
+   * @param {number} port Номер порта
+   * @returns {Promise<void>}
+   */
+  killProcessOnPort(port) {
+    return new Promise((resolve, reject) => {
+      const platform = process.platform;
+
+      let command;
+
+      if (platform === 'win32') {
+        // Для Windows
+        command = `netstat -ano | findstr :${port}`;
+      } else {
+        // Для Unix-подобных систем
+        command = `lsof -t -i:${port}`;
+      }
+
+      exec(command, (err, stdout, stderr) => {
+        if (err) {
+          // Нет процесса, занимающего порт
+          return resolve();
+        }
+
+        const pids = stdout.split('\n').filter(Boolean);
+
+        if (pids.length === 0) {
+          return resolve();
+        }
+
+        const killCommand = platform === 'win32'
+          ? `taskkill /F /PID ${pids.join(' /PID ')}`
+          : `kill -9 ${pids.join(' ')}`;
+
+        exec(killCommand, (killErr, killStdout, killStderr) => {
+          if (killErr) {
+            return reject(killErr);
+          }
+          console.log(`Порт ${port} был освобожден.`);
+          resolve();
+        });
+      });
+    });
   }
 
   startWebServer() {
-    const http = require('http');
-    const url = require('url');
-    const fs = require('fs');
-    const path = require('path');
-  
-    const publicDir = path.join(__dirname, 'public');
-  
+    const publicDir = path.join(__dirname, '..', 'public');
+
     this.server = http.createServer((req, res) => {
       const parsedUrl = url.parse(req.url);
       let pathname = path.join(publicDir, parsedUrl.pathname);
-  
+
       // Обработка корневого пути и SSE
       if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/logs') {
         pathname = path.join(publicDir, 'pages', 'logs.html');
@@ -111,27 +164,27 @@ class Logger {
           Connection: 'keep-alive',
         });
         res.write('\n');
-  
+
         this.webClients.push(res);
-  
+
         req.on('close', () => {
           this.webClients = this.webClients.filter((client) => client !== res);
         });
         return; // Выходим из обработчика запроса
       }
-  
+
       fs.exists(pathname, (exist) => {
         if (!exist) {
           res.statusCode = 404;
           res.end(`File ${pathname} not found!`);
           return;
         }
-  
+
         // Если путь - директория, подставляем index.html
         if (fs.statSync(pathname).isDirectory()) {
           pathname = path.join(pathname, 'index.html');
         }
-  
+
         // Определяем MIME-тип по расширению файла
         const ext = path.parse(pathname).ext;
         const mimeType = {
@@ -145,7 +198,7 @@ class Logger {
           '.svg': 'image/svg+xml',
           '.wav': 'audio/wav',
         };
-  
+
         fs.readFile(pathname, (err, data) => {
           if (err) {
             res.statusCode = 500;
@@ -157,13 +210,11 @@ class Logger {
         });
       });
     });
-  
+
     this.server.listen(this.webServerPort, () => {
       console.log(`Logger web server started on port ${this.webServerPort}`);
     });
   }
-  
-
 
   stopWebServer() {
     if (this.server) {
@@ -173,12 +224,15 @@ class Logger {
     }
   }
 
+  /**
+   * Закрытие всех потоков при завершении работы
+   */
   close() {
     Object.values(this.streams).forEach((stream) => {
       stream.end();
     });
     this.stopWebServer();
-  }  
+  }
 
   /**
    * Установка формата логирования
@@ -220,7 +274,7 @@ class Logger {
       const maskedMessage = this.applyMasking(message);
       const timestamp = getTimestamp();
       let prefix = this.prefixes[level] || `[${level.toUpperCase()}]`;
-  
+
       if (this.useEmoji) {
         const emojis = {
           error: '❌',
@@ -232,25 +286,26 @@ class Logger {
         };
         prefix = `${emojis[level] || ''} ${prefix}`;
       }
-  
+
       const moduleInfo = this.moduleTag ? `[${this.moduleTag}] ` : '';
       const color = this.colors[level] || 'white';
-  
+
       const logObject = {
         timestamp,
         level,
         module: this.moduleTag || undefined,
         message: maskedMessage,
       };
-  
-      const formattedMessage = this.logFormat === 'json'
-        ? JSON.stringify(logObject)
-        : `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
-  
+
+      const formattedMessage =
+        this.logFormat === 'json'
+          ? JSON.stringify(logObject)
+          : `${timestamp} ${prefix}: ${moduleInfo}${maskedMessage}`;
+
       console.log(colorize(formattedMessage, color));
       this.writeToStream(level, formattedMessage);
       this.writeToStream('combined', formattedMessage);
-  
+
       // Отправка логов веб-клиентам через SSE
       if (this.webClients.length > 0) {
         const sseData = `data: ${JSON.stringify(logObject)}\n\n`;
@@ -260,7 +315,6 @@ class Logger {
       }
     }
   }
-  
 
   /**
    * Проверяет размер файла и выполняет ротацию при необходимости
@@ -413,15 +467,6 @@ class Logger {
    */
   setModuleTag(tag) {
     this.moduleTag = tag;
-  }
-
-  /**
-   * Закрытие всех потоков при завершении работы
-   */
-  close() {
-    Object.values(this.streams).forEach((stream) => {
-      stream.end();
-    });
   }
 }
 
