@@ -1,106 +1,109 @@
 // bot.js
 
 const { Telegraf } = require('telegraf');
-const Logger = require('../src/logger'); // Подключаем ваш кастомный Logger
+const Logger = require('../src/logger'); // Adjust the path if necessary
 
 const BOT_TOKEN = '6812072921:AAGsOp6nTiPFiOx_5tgcCexTnxaPGJNxxD4';
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Инициализируем логгер с необходимыми настройками
 const logger = new Logger({
-  logDirectory: 'logs', // Путь к директории для сохранения логов (по умолчанию 'logs')
-  logLevel: 'verbose',  // Уровень логирования: 'error', 'warn', 'info', 'verbose', 'debug', 'silly' (по умолчанию 'info')
-  colors: {
-    error: 'red',
-    warn: 'yellow',
-    info: 'green',
-    verbose: 'blue',
-    debug: 'cyan',
-    silly: 'magenta',
-  },
-  prefixes: {
-    error: '[ERROR]',
-    warn: '[WARN]',
-    info: '[INFO]',
-    verbose: '[VERBOSE]',
-    debug: '[DEBUG]',
-    silly: '[SILLY]',
-  },
-  useEmoji: true,      // Включить эмодзи в префиксах
-  maxFileSize: 10 * 1024 * 1024, // 10MB (максимальный размер файла перед ротацией)
-  maskPatterns: [     // Шаблоны для маскировки чувствительных данных
+  logDirectory: 'logs',
+  logLevel: 'silly',
+  useEmoji: true,
+  maxFileSize: 10 * 1024 * 1024,
+  maskPatterns: [
     /Bearer\s[^\s]+/g,
     /password\s*=\s*['"][^'"]+['"]/g,
   ],
-  enableWebServer: true,    // Включить веб-сервер для просмотра логов в реальном времени
-  webServerPort: 7000,      // Порт веб-сервера
+  enableWebServer: true,
+  webServerPort: 4000,
+  users: [
+    { username: 'admin', password: 'adminpass' },
+  ],
 });
 
-// Используем middleware для логирования входящих обновлений
+bot.command('adduser', async (ctx) => {
+  const args = ctx.message.text.split(' ');
+  if (args.length !== 3) {
+    ctx.reply('Usage: /adduser <username> <password>');
+    return;
+  }
+  const username = args[1];
+  const password = args[2];
+  const userAdded = await logger.createUser(username, password);
+  if (userAdded) {
+    ctx.reply(`User '${username}' added successfully.`);
+    logger.info(`User '${username}' added by bot command.`);
+  } else {
+    ctx.reply(`User '${username}' already exists.`);
+    logger.warn(`Attempt to add existing user '${username}'.`);
+  }
+});
+
 bot.use((ctx, next) => {
-  // Логируем информацию о пользователе и сообщении
   const username = ctx.from ? ctx.from.username : 'unknown';
-  const messageText = ctx.message ? ctx.message.text : 'нет текста';
-  logger.info(`Получено сообщение от @${username}: ${messageText}`);
+  const messageText = ctx.message ? ctx.message.text : 'no text';
+  logger.info(`Received message from @${username}: ${messageText}`);
   return next();
 });
 
-// Пример команды /start
 bot.start((ctx) => {
-  ctx.reply('Привет! Я бот с расширенным логированием, ротацией логов и маскированием данных.');
+  ctx.reply('Hello! This is a bot with advanced logging.');
   const username = ctx.from ? ctx.from.username : 'unknown';
-  logger.info(`Пользователь @${username} запустил бота. Токен: Bearer abc123`);
+  logger.info(`User @${username} started the bot.`);
 });
 
-// Пример команды /help
 bot.help((ctx) => {
-  ctx.reply('Список доступных команд: /start, /help, /silly, /setcolor, /addmask');
+  ctx.reply('Available commands: /start, /help, /silly, /setcolor, /addmask, /adduser, /testlogs');
   const username = ctx.from ? ctx.from.username : 'unknown';
-  logger.verbose(`Пользователь @${username} вызвал команду /help`);
+  logger.verbose(`User @${username} requested help.`);
 });
 
-// Пример обработки текстового сообщения с паролем
 bot.on('text', (ctx) => {
   const username = ctx.from ? ctx.from.username : 'unknown';
-  logger.debug(`Получено сообщение от @${username}: password='secret'`);
-  // Ваш код обработки сообщения
+  logger.debug(`Received text from @${username}: ${ctx.message.text}`);
 });
 
-// Пример использования уровня 'silly'
 bot.command('silly', (ctx) => {
   const username = ctx.from ? ctx.from.username : 'unknown';
-  logger.silly(`Пользователь @${username} вызвал команду /silly`);
-  ctx.reply('Это silly команда!');
+  logger.silly(`User @${username} invoked /silly command.`);
+  ctx.reply('This is a silly command!');
 });
 
-// Пример изменения цвета и префикса динамически
 bot.command('setcolor', (ctx) => {
   const username = ctx.from ? ctx.from.username : 'unknown';
   logger.setColor('info', 'cyan');
   logger.setPrefix('info', '[INFORMATION]');
-  ctx.reply('Цвет и префикс для info уровня изменены.');
-  logger.info(`Цвет и префикс для info уровня изменены пользователем @${username}`);
+  ctx.reply('Changed color and prefix for info level.');
+  logger.info(`User @${username} changed the info level color and prefix.`);
 });
 
-// Пример добавления нового шаблона маскировки
 bot.command('addmask', (ctx) => {
   const username = ctx.from ? ctx.from.username : 'unknown';
   logger.addMaskPattern(/api_key\s*=\s*[^\s]+/g);
-  ctx.reply('Добавлен новый шаблон маскировки для api_key.');
-  logger.info(`Пользователь @${username} добавил новый шаблон маскировки.`);
+  ctx.reply('Added a new mask pattern for api_key.');
+  logger.info(`User @${username} added a new mask pattern.`);
 });
 
-// Запуск бота
+bot.command('testlogs', (ctx) => {
+  logger.error('This is an error message.');
+  logger.warn('This is a warning message.');
+  logger.info('This is an info message.');
+  logger.verbose('This is a verbose message.');
+  logger.debug('This is a debug message.');
+  logger.silly('This is a silly message.');
+  ctx.reply('All log levels have been tested.');
+});
+
 bot.launch()
   .then(() => {
-    logger.info('Бот успешно запущен.');
+    logger.info('Bot started successfully.');
   })
   .catch((err) => {
-    logger.error(`Не удалось запустить бота: ${err.message}`);
+    logger.error(`Failed to start bot: ${err.message}`);
   });
 
-// Обработка сигналов для корректного завершения и закрытия потоков
 process.once('SIGINT', () => {
   bot.stop('SIGINT');
   logger.close();

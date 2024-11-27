@@ -21,7 +21,7 @@ function telegrafLogger(bot, options = {}) {
 
   // Логирование входящих обновлений
   bot.use(async (ctx, next) => {
-    logger.info(`Получено обновление: ${JSON.stringify()}`);
+    logger.info(`Получено обновление: ${JSON.stringify(ctx.update)}`);
     try {
       await next();
       logger.info(`Обработано обновление: ${ctx.update.update_id}`);
@@ -51,8 +51,6 @@ function telegrafLogger(bot, options = {}) {
   bot.on('callback_query', (ctx) => {
     logger.verbose(`Получен callback_query от @${ctx.from.username}: ${JSON.stringify(ctx.callbackQuery)}`);
   });
-
-  // Дополнительные обработчики событий могут быть добавлены здесь
 
   return logger;
 }

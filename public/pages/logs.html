@@ -1,26 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Логи в реальном времени</title>
+  <title>Real-Time Logs</title>
   <link rel="stylesheet" href="/styles/logs.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h1>Логи в реальном времени</h1>
+  <h1>Real-Time Logs</h1>
   <div class="controls">
-    <label for="level">Уровень логов:</label>
-    <select id="level">
-      <option value="all">Все</option>
-      <option value="error">Error</option>
-      <option value="warn">Warn</option>
-      <option value="info">Info</option>
-      <option value="verbose">Verbose</option>
-      <option value="debug">Debug</option>
-      <option value="silly">Silly</option>
-    </select>
-    <input type="text" id="search" placeholder="Поиск по логам...">
+        <div class="filters">
+        <label for="levels">Log Levels:</label>
+        <select id="levels" multiple>
+          <option value="error" selected>Error</option>
+          <option value="warn" selected>Warn</option>
+          <option value="info" selected>Info</option>
+          <option value="verbose">Verbose</option>
+          <option value="debug">Debug</option>
+          <option value="silly">Silly</option>
+        </select>
+      </div>
+      <div class="module-filter">
+        <label for="module-tag">Module Tag:</label>
+        <input type="text" id="module-tag" placeholder="Enter module tag...">
+      </div>
+      <div class="time-range">
+        <label for="start-time">Start Time:</label>
+        <input type="datetime-local" id="start-time">
+        <label for="end-time">End Time:</label>
+        <input type="datetime-local" id="end-time">
+      </div>
+      <div class="search">
+        <label for="search">Search:</label>
+        <input type="text" id="search" placeholder="Search logs...">
+        <label>
+          <input type="checkbox" id="regex-search"> Regex
+        </label>
+        <button id="save-filter">Save Filter</button>
+        <select id="saved-filters">
+          <option value="">Select Saved Filter</option>
+        </select>
+      </div>
+      <div class="options">
+        <button id="pause">Pause</button>
+        <button id="resume" disabled>Resume</button>
+        <button id="export">Export</button>
+        <label for="export-format">Export Format:</label>
+        <select id="export-format">
+          <option value="json">JSON</option>
+          <option value="csv">CSV</option>
+        </select>
+        <label>
+          <input type="checkbox" id="autoscroll" checked> Auto-Scroll
+        </label>
+        <label>
+          <input type="checkbox" id="dark-mode"> Dark Mode
+        </label>
+      </div>
+      <div class="set-log-level">
+        <label for="set-log-level">Set Logger Level:</label>
+        <select id="set-log-level">
+          <option value="error">Error</option>
+          <option value="warn">Warn</option>
+          <option value="info" selected>Info</option>
+          <option value="verbose">Verbose</option>
+          <option value="debug">Debug</option>
+          <option value="silly">Silly</option>
+        </select>
+      </div>
+      <div class="analytics-link">
+        <a href="/analytics">View Detailed Analytics</a>
+      </div>
+  </div>    
+  <div id="logs-container">
+    <ul id="logs"></ul>
   </div>
-  <pre id="logs"></pre>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/scripts/logs.js"></script>
 </body>
 </html>

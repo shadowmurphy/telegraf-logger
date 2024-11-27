@@ -1,0 +1,18 @@
+{"timestamp":"2024-11-27T17:35:48.797Z","level":"info","message":"Info message","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.798Z","level":"warn","message":"Warning message","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.798Z","level":"error","message":"Error message","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.798Z","level":"debug","message":"Debug message","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.799Z","level":"verbose","message":"Verbose message","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.799Z","level":"info","message":"This contains [MASKED] that should be masked.","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.799Z","level":"info","message":"This is a JSON formatted log message.","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.799Z","level":"debug","module":"TestModule","message":"This message has a module tag.","pid":36517}
+{"timestamp":"2024-11-27T17:35:48.799Z","level":"info","module":"TestModule","message":"This should trigger log rotation due to size limit.","pid":36517}
+{"timestamp":"2024-11-27T17:35:56.777Z","level":"info","message":"Info message","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.779Z","level":"warn","message":"Warning message","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.779Z","level":"error","message":"Error message","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"debug","message":"Debug message","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"verbose","message":"Verbose message","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"info","message":"This contains [MASKED] that should be masked.","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"info","message":"This is a JSON formatted log message.","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"debug","module":"TestModule","message":"This message has a module tag.","pid":36539}
+{"timestamp":"2024-11-27T17:35:56.780Z","level":"info","module":"TestModule","message":"This should trigger log rotation due to size limit.","pid":36539}

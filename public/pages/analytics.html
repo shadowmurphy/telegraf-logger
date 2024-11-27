@@ -1,0 +1,22 @@
+<!-- public/pages/analytics.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Detailed Analytics - Real-Time Logs</title>
+  <link rel="stylesheet" href="/styles/logs.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <h1>Detailed Analytics</h1>
+  <div class="analytics-container">
+    <canvas id="detailed-chart" width="800" height="400"></canvas>
+  </div>
+  <div class="analytics-container">
+    <h2>Logs Over Time</h2>
+    <canvas id="time-chart"></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/scripts/analytics.js"></script>
+</body>
+</html>

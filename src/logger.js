@@ -3,34 +3,34 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const url = require('url');
-const { getTimestamp, writeToFile, colorize } = require('./utils');
+const express = require('express');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const WebSocket = require('ws');
+const { getTimestamp, colorize } = require('./utils');
 const { exec } = require('child_process');
 
 /**
  * @typedef {Object} LoggerOptions
- * @property {string} [logDirectory] - Путь к директории для сохранения логов
- * @property {string} [logLevel] - Уровень логирования ('error', 'warn', 'info', 'verbose', 'debug', 'silly')
- * @property {Object} [colors] - Объект с цветами для различных уровней
- * @property {Object} [prefixes] - Объект с префиксами для различных уровней
- * @property {boolean} [useEmoji] - Использовать эмодзи в префиксах
- * @property {number} [maxFileSize] - Максимальный размер файла логов в байтах (по умолчанию 5MB)
- * @property {Array<RegExp>} [maskPatterns] - Массив регулярных выражений для маскировки данных
- * @property {string} [moduleTag] - Тег модуля для фильтрации логов
- * @property {boolean} [enableWebServer] - Включить встроенный веб-сервер для просмотра логов
- * @property {number} [webServerPort] - Порт для веб-сервера (по умолчанию 3000)
+ * @property {string} [logDirectory]
+ * @property {string} [logLevel]
+ * @property {Object} [colors]
+ * @property {Object} [prefixes]
+ * @property {boolean} [useEmoji]
+ * @property {number} [maxFileSize]
+ * @property {Array<RegExp>} [maskPatterns]
+ * @property {string} [moduleTag]
+ * @property {boolean} [enableWebServer]
+ * @property {number} [webServerPort]
+ * @property {Array<Object>} [users]
  */
 
-/**
- * Класс Logger для управления логированием
- */
 class Logger {
   /**
-   * Создаёт экземпляр Logger
-   * @param {LoggerOptions} [options] - Опции для логирования
+   * Creates a Logger instance
+   * @param {LoggerOptions} [options]
    */
   constructor(options = {}) {
-    this.logFormat = options.logFormat || 'text';
     this.logFormat = options.logFormat || 'text';
     this.logDirectory = options.logDirectory || 'logs';
     this.logLevel = options.logLevel || 'info';
@@ -51,17 +51,16 @@ class Logger {
       silly: '[SILLY]',
     };
     this.useEmoji = options.useEmoji || false;
-    this.maxFileSize = options.maxFileSize || 5 * 1024 * 1024; // 5MB
-    this.maskPatterns = options.maskPatterns || []; // Массив RegExp
-    this.moduleTag = options.moduleTag || ''; // Тег модуля
+    this.maxFileSize = options.maxFileSize || 5 * 1024 * 1024;
+    this.maskPatterns = options.maskPatterns || [];
+    this.moduleTag = options.moduleTag || '';
     this.enableWebServer = options.enableWebServer || false;
     this.webServerPort = options.webServerPort || 3000;
     this.webClients = [];
+    this.users = options.users || [];
 
-    // Создаём папку для логов, если её нет
     if (!fs.existsSync(this.logDirectory)) fs.mkdirSync(this.logDirectory, { recursive: true });
 
-    // Расширенные уровни логирования
     this.levels = {
       error: 0,
       warn: 1,
@@ -73,10 +72,8 @@ class Logger {
 
     this.currentLevel = this.levels[this.logLevel] !== undefined ? this.levels[this.logLevel] : 2;
 
-    // Кэш для потоков записи
     this.streams = {};
 
-    // Инициализируем потоки для каждого уровня
     Object.keys(this.levels).forEach((level) => {
       this.streams[level] = fs.createWriteStream(
         path.join(this.logDirectory, `${level}.log`),
@@ -92,19 +89,39 @@ class Logger {
       { flags: 'a' }
     );
 
-    // Запускаем веб-сервер, если он включен
+    this.jsonLogStream = fs.createWriteStream(
+      path.join(this.logDirectory, 'logs.json'),
+      { flags: 'a' }
+    );
+
     if (this.enableWebServer) {
       this.killProcessOnPort(this.webServerPort)
         .then(() => this.startWebServer())
-        .catch((err) => console.error(`Ошибка при освобождении порта: ${err}`));
+        .catch((err) => console.error(`Error freeing up port: ${err}`));
+    }
+
+    this.initializeUsers();
+  }
+
+  async initializeUsers() {
+    try {
+      const usersFileExists = fs.existsSync(path.join(this.logDirectory, 'users.json'));
+      if (!usersFileExists) {
+        await fs.promises.writeFile(
+          path.join(this.logDirectory, 'users.json'),
+          JSON.stringify([], null, 2)
+        );
+      }
+      if (this.users.length > 0) {
+        for (const user of this.users) {
+          await this.createUser(user.username, user.password);
+        }
+      }
+    } catch (err) {
+      console.error('Error initializing users:', err);
     }
   }
 
-  /**
-   * Завершает процесс, занимающий указанный порт
-   * @param {number} port Номер порта
-   * @returns {Promise<void>}
-   */
   killProcessOnPort(port) {
     return new Promise((resolve, reject) => {
       const platform = process.platform;
@@ -112,16 +129,13 @@ class Logger {
       let command;
 
       if (platform === 'win32') {
-        // Для Windows
         command = `netstat -ano | findstr :${port}`;
       } else {
-        // Для Unix-подобных систем
         command = `lsof -t -i:${port}`;
       }
 
       exec(command, (err, stdout, stderr) => {
         if (err) {
-          // Нет процесса, занимающего порт
           return resolve();
         }
 
@@ -139,7 +153,7 @@ class Logger {
           if (killErr) {
             return reject(killErr);
           }
-          console.log(`Порт ${port} был освобожден.`);
+          console.log(`Port ${port} has been freed.`);
           resolve();
         });
       });
@@ -148,66 +162,97 @@ class Logger {
 
   startWebServer() {
     const publicDir = path.join(__dirname, '..', 'public');
+    const app = express();
 
-    this.server = http.createServer((req, res) => {
-      const parsedUrl = url.parse(req.url);
-      let pathname = path.join(publicDir, parsedUrl.pathname);
+    app.use(session({
+      secret: 'your-secret-key',
+      resave: false,
+      saveUninitialized: false,
+    }));
 
-      // Обработка корневого пути и SSE
-      if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/logs') {
-        pathname = path.join(publicDir, 'pages', 'logs.html');
-      } else if (parsedUrl.pathname === '/stream') {
-        // Обработка SSE для логов в реальном времени
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        });
-        res.write('\n');
+    app.use(express.urlencoded({ extended: true }));
+    app.use(express.json());
 
-        this.webClients.push(res);
+    app.use('/styles', express.static(path.join(publicDir, 'styles')));
+    app.use('/scripts', express.static(path.join(publicDir, 'scripts')));
+    app.use('/pages', express.static(path.join(publicDir, 'pages')));
 
-        req.on('close', () => {
-          this.webClients = this.webClients.filter((client) => client !== res);
-        });
-        return; // Выходим из обработчика запроса
+    app.use((req, res, next) => {
+      if (req.session && req.session.authenticated) {
+        next();
+      } else if (['/login', '/authenticate'].includes(req.path)) {
+        next();
+      } else {
+        res.redirect('/login');
       }
+    });
 
-      fs.exists(pathname, (exist) => {
-        if (!exist) {
-          res.statusCode = 404;
-          res.end(`File ${pathname} not found!`);
-          return;
+    app.get('/login', (req, res) => {
+      res.sendFile(path.join(publicDir, 'pages', 'login.html'));
+    });
+
+    app.post('/authenticate', async (req, res) => {
+      const { username, password } = req.body;
+
+      const validUser = await this.validateUser(username, password);
+
+      if (validUser) {
+        req.session.authenticated = true;
+        req.session.username = username;
+        res.redirect('/');
+      } else {
+        res.redirect('/login?error=Invalid credentials');
+      }
+    });
+
+    app.get('/', (req, res) => {
+      res.sendFile(path.join(publicDir, 'pages', 'logs.html'));
+    });
+
+    app.get('/analytics', (req, res) => {
+      res.sendFile(path.join(publicDir, 'pages', 'analytics.html'));
+    });
+
+    app.get('/logs-data', (req, res) => {
+      const logsFilePath = path.join(this.logDirectory, 'logs.json');
+      fs.readFile(logsFilePath, 'utf8', (err, data) => {
+        if (err && err.code === 'ENOENT') {
+          // Файл не существует, отправляем пустой массив
+          res.json({ success: true, logs: [] });
+        } else if (err) {
+          res.status(500).json({ success: false, error: 'Failed to read logs' });
+        } else {
+          const logs = data.trim().split('\n').map(line => {
+            try {
+              return JSON.parse(line);
+            } catch (e) {
+              return null;
+            }
+          }).filter(log => log !== null);
+          res.json({ success: true, logs });
         }
+      });
+    });
+    
 
-        // Если путь - директория, подставляем index.html
-        if (fs.statSync(pathname).isDirectory()) {
-          pathname = path.join(pathname, 'index.html');
-        }
+    app.post('/set-log-level', (req, res) => {
+      const { level } = req.body;
+      this.setLogLevel(level);
+      res.json({ success: true });
+    });
 
-        // Определяем MIME-тип по расширению файла
-        const ext = path.parse(pathname).ext;
-        const mimeType = {
-          '.html': 'text/html',
-          '.css': 'text/css',
-          '.js': 'application/javascript',
-          '.json': 'application/json',
-          '.png': 'image/png',
-          '.jpg': 'image/jpeg',
-          '.gif': 'image/gif',
-          '.svg': 'image/svg+xml',
-          '.wav': 'audio/wav',
-        };
+    this.server = http.createServer(app);
 
-        fs.readFile(pathname, (err, data) => {
-          if (err) {
-            res.statusCode = 500;
-            res.end(`Error getting the file: ${err}.`);
-          } else {
-            res.setHeader('Content-type', mimeType[ext] || 'text/plain');
-            res.end(data);
-          }
-        });
+    this.wss = new WebSocket.Server({ server: this.server });
+
+    this.wss.on('connection', (ws) => {
+      console.log('WebSocket client connected');
+
+      ws.on('message', (message) => {
+      });
+
+      ws.on('close', () => {
+        console.log('WebSocket client disconnected');
       });
     });
 
@@ -216,37 +261,77 @@ class Logger {
     });
   }
 
-  stopWebServer() {
-    if (this.server) {
-      this.server.close();
-      this.webClients.forEach((client) => client.end());
-      this.webClients = [];
+  async validateUser(username, password) {
+    try {
+      const users = await this.getUsers();
+      const user = users.find(u => u.username === username);
+      if (user) {
+        return await bcrypt.compare(password, user.passwordHash);
+      }
+      return false;
+    } catch (err) {
+      console.error('Error validating user:', err);
+      return false;
     }
   }
 
-  /**
-   * Закрытие всех потоков при завершении работы
-   */
+  async createUser(username, password) {
+    try {
+      const users = await this.getUsers();
+      const existingUser = users.find(u => u.username === username);
+      if (existingUser) {
+        return false;
+      }
+      const passwordHash = await bcrypt.hash(password, 10);
+      users.push({ username, passwordHash });
+      await fs.promises.writeFile(
+        path.join(this.logDirectory, 'users.json'),
+        JSON.stringify(users, null, 2)
+      );
+      return true;
+    } catch (err) {
+      console.error('Error creating user:', err);
+      return false;
+    }
+  }
+
+  async getUsers() {
+    try {
+      const usersFilePath = path.join(this.logDirectory, 'users.json');
+      if (!fs.existsSync(usersFilePath)) {
+        await fs.promises.writeFile(usersFilePath, JSON.stringify([]));
+      }
+      const data = await fs.promises.readFile(usersFilePath, 'utf8');
+      return JSON.parse(data);
+    } catch (err) {
+      console.error('Error reading users file:', err);
+      return [];
+    }
+  }
+
+  stopWebServer() {
+    if (this.server) {
+      this.server.close();
+      if (this.wss) {
+        this.wss.close();
+      }
+    }
+  }
+
   close() {
     Object.values(this.streams).forEach((stream) => {
       stream.end();
     });
+    if (this.jsonLogStream) {
+      this.jsonLogStream.end();
+    }
     this.stopWebServer();
   }
 
-  /**
-   * Установка формата логирования
-   * @param {string} format Формат ('text' или 'json')
-   */
   setLogFormat(format) {
     if (format === 'text' || format === 'json') this.logFormat = format;
   }
 
-  /**
-   * Применяет маскировку к сообщению
-   * @param {string} message Сообщение для маскировки
-   * @returns {string} Маскированное сообщение
-   */
   applyMasking(message) {
     let maskedMessage = message;
     this.maskPatterns.forEach((pattern) => {
@@ -255,24 +340,14 @@ class Logger {
     return maskedMessage;
   }
 
-  /**
-   * Проверяет, нужно ли логировать сообщение данного уровня
-   * @param {string} level Уровень сообщения
-   * @returns {boolean}
-   */
   shouldLog(level) {
     return this.levels[level] <= this.currentLevel;
   }
 
-  /**
-   * Логирование сообщения
-   * @param {string} level Уровень сообщения
-   * @param {string} message Сообщение для логирования
-   */
   log(level, message) {
     if (this.shouldLog(level)) {
       const maskedMessage = this.applyMasking(message);
-      const timestamp = getTimestamp();
+      const timestamp = new Date().toISOString();
       let prefix = this.prefixes[level] || `[${level.toUpperCase()}]`;
 
       if (this.useEmoji) {
@@ -293,8 +368,9 @@ class Logger {
       const logObject = {
         timestamp,
         level,
-        module: this.moduleTag || undefined,
+        module: this.moduleTag || '',
         message: maskedMessage,
+        pid: process.pid,
       };
 
       const formattedMessage =
@@ -306,20 +382,21 @@ class Logger {
       this.writeToStream(level, formattedMessage);
       this.writeToStream('combined', formattedMessage);
 
-      // Отправка логов веб-клиентам через SSE
-      if (this.webClients.length > 0) {
-        const sseData = `data: ${JSON.stringify(logObject)}\n\n`;
-        this.webClients.forEach((client) => {
-          client.write(sseData);
+      this.jsonLogStream.write(JSON.stringify(logObject) + '\n', (err) => {
+        if (err) console.error('Error writing log to file:', err);
+      });
+
+      if (this.wss && this.wss.clients.size > 0) {
+        const logData = JSON.stringify(logObject);
+        this.wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(logData);
+          }
         });
       }
     }
   }
 
-  /**
-   * Проверяет размер файла и выполняет ротацию при необходимости
-   * @param {string} streamName Имя потока
-   */
   checkFileSizeAndRotate(streamName) {
     const filePath = path.join(this.logDirectory, `${streamName}.log`);
     fs.stat(filePath, (err, stats) => {
@@ -336,11 +413,6 @@ class Logger {
     });
   }
 
-  /**
-   * Запись сообщения в поток
-   * @param {string} streamName Имя потока
-   * @param {string} message Сообщение для записи
-   */
   writeToStream(streamName, message) {
     this.checkFileSizeAndRotate(streamName);
     if (this.streams[streamName]) {
@@ -352,119 +424,66 @@ class Logger {
     }
   }
 
-  /**
-   * Логирование информации
-   * @param {string} message Сообщение для логирования
-   */
   info(message) {
     this.log('info', message);
   }
 
-  /**
-   * Логирование предупреждений
-   * @param {string} message Сообщение для логирования
-   */
   warn(message) {
     this.log('warn', message);
   }
 
-  /**
-   * Логирование ошибок
-   * @param {string} message Сообщение для логирования
-   */
   error(message) {
     this.log('error', message);
   }
 
-  /**
-   * Логирование детальной информации
-   * @param {string} message Сообщение для логирования
-   */
   verbose(message) {
     this.log('verbose', message);
   }
 
-  /**
-   * Логирование отладочной информации
-   * @param {string} message Сообщение для логирования
-   */
   debug(message) {
     this.log('debug', message);
   }
 
-  /**
-   * Логирование очень детальной информации
-   * @param {string} message Сообщение для логирования
-   */
   silly(message) {
     this.log('silly', message);
   }
 
-  /**
-   * Установка цвета для конкретного уровня
-   * @param {string} level Уровень
-   * @param {string} color Цвет (например, 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white')
-   */
   setColor(level, color) {
     if (this.colors[level]) {
       this.colors[level] = color;
     }
   }
 
-  /**
-   * Установка префикса для конкретного уровня
-   * @param {string} level Уровень
-   * @param {string} prefix Префикс (например, '[ERROR]')
-   */
   setPrefix(level, prefix) {
     if (this.prefixes[level]) {
       this.prefixes[level] = prefix;
     }
   }
 
-  /**
-   * Установка уровня логирования
-   * @param {string} level Уровень ('error', 'warn', 'info', 'verbose', 'debug', 'silly')
-   */
   setLogLevel(level) {
     if (this.levels[level] !== undefined) {
       this.logLevel = level;
       this.currentLevel = this.levels[level];
+      console.log(`Log level changed to ${level}`);
     }
   }
 
-  /**
-   * Включение или отключение эмодзи в префиксах
-   * @param {boolean} useEmoji
-   */
   setUseEmoji(useEmoji) {
     this.useEmoji = useEmoji;
   }
 
-  /**
-   * Установка максимального размера файла логов
-   * @param {number} maxSize Максимальный размер в байтах
-   */
   setMaxFileSize(maxSize) {
     if (typeof maxSize === 'number' && maxSize > 0) {
       this.maxFileSize = maxSize;
     }
   }
 
-  /**
-   * Добавление шаблона для маскировки данных
-   * @param {RegExp} pattern Регулярное выражение для поиска
-   */
   addMaskPattern(pattern) {
     if (pattern instanceof RegExp) {
       this.maskPatterns.push(pattern);
     }
   }
 
-  /**
-   * Установка тега модуля
-   * @param {string} tag Тег модуля
-   */
   setModuleTag(tag) {
     this.moduleTag = tag;
   }

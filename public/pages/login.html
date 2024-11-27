@@ -1,0 +1,32 @@
+<!-- public/pages/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Real-Time Logs</title>
+  <link rel="stylesheet" href="/styles/login.css">
+</head>
+<body>
+  <div class="auth-container">
+    <h1>Log In</h1>
+    <form action="/authenticate" method="post" class="auth-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" name="username" id="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" name="password" id="password" required>
+      </div>
+      <button type="submit" class="auth-button">Log In</button>
+    </form>
+  </div>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    if (error) {
+      alert(error);
+    }
+  </script>
+</body>
+</html>
