@@ -4,12 +4,12 @@ const { Telegraf } = require('telegraf');
 const Logger = require('../src/logger'); // Adjust the path if necessary
 
 const BOT_TOKEN = '6812072921:AAGsOp6nTiPFiOx_5tgcCexTnxaPGJNxxD4';
-
+// asd
 const bot = new Telegraf(BOT_TOKEN);
 
 const logger = new Logger({
   logDirectory: 'logs',
-  logLevel: 'silly',
+  logLevel: 'verbose',
   useEmoji: true,
   maxFileSize: 10 * 1024 * 1024,
   maskPatterns: [
@@ -95,6 +95,11 @@ bot.command('testlogs', (ctx) => {
   logger.silly('This is a silly message.');
   ctx.reply('All log levels have been tested.');
 });
+
+bot.command("warn", async ctx => {
+  logger.warn('test warn');
+  ctx.reply("йоу варн")
+})
 
 bot.launch()
   .then(() => {
