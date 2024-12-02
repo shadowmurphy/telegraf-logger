@@ -4,7 +4,7 @@ const { Telegraf } = require('telegraf');
 const Logger = require('../src/logger'); // Adjust the path if necessary
 
 const BOT_TOKEN = '6812072921:AAGsOp6nTiPFiOx_5tgcCexTnxaPGJNxxD4';
-// asd
+// test
 const bot = new Telegraf(BOT_TOKEN);
 
 const logger = new Logger({
